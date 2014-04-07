@@ -287,7 +287,7 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
     return url;
   };
 
-  factory.reportPlaybackStart = function ($scope, userId, itemId, canSeek, queueableMediaTypes) {
+  factory.reportPlaybackStart = function ($scope, userId, itemId, params) {
 
     var deferred = $q.defer();
     deferred.resolve();
@@ -306,10 +306,6 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       console.log("null serverAddress");
       return deferred.promise;
     }
-    var params = {
-      CanSeek: canSeek,
-      QueueableMediaTypes: queueableMediaTypes
-    };
 
     var url = getUrl($scope, "Users/" + userId + "/PlayingItems/" + itemId);
     var auth = authorizationHeader($scope, userId);
@@ -394,6 +390,35 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       });
   };
 
+  factory.reportSeek = function ($scope) {
+    var deferred = $q.defer();
+    deferred.resolve();
+    
+    if (!$scope.serverAddress) {
+      console.log("null serverAddress");
+      return deferred.promise;
+    }
+
+    if (!$scope.sessionId) {
+      console.log("null sessionId");
+      return deferred.promise;
+    }
+
+    var params = {
+      SeekPositionTicks: $scope.currentTime
+    };
+
+    var url = getUrl($scope, "Sessions/" + $scope.sessionId + "/Playing/Seek");
+    var auth = authorizationHeader($scope, userId);
+    return $http.post(url,
+      {
+        params: params,
+        headers: {
+          Authorization: auth
+        }
+      });
+  }
+
   factory.load = function ($scope, customData) {
     $scope.$apply(function () {
       $scope.poster = '';
@@ -411,6 +436,7 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       $scope.mediaSourceId = "";
       $scope.audioStreamIndex = "";
       $scope.subtitleStreamIndex = "";
+      $scope.sessionId = "";
     });
 
     clearTimeouts();
@@ -430,7 +456,7 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
     }
 
     $scope.startTimeTicks = contentInfo.startTimeTicks || 0;
-  	$scope.startTimeTicks = $scope.startTimeTicks * 1;
+    $scope.startTimeTicks = $scope.startTimeTicks * 1;
     $scope.serverAddress = contentInfo.serverAddress;
     $scope.userId = contentInfo.userId;
     $scope.itemId = contentInfo.itemId;
@@ -476,8 +502,13 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
 
   factory.delayStart = function ($scope) {
     delayStartPromise = $timeout(function () {
+      var params = {
+        CanSeek: false,
+        QueueableMediaTypes: $scope.mediaType,
+        SupportsRemoteControl: true
+      };
 
-      factory.reportPlaybackStart($scope, $scope.userId, $scope.itemId, false, $scope.mediaType).finally(function () {
+      factory.reportPlaybackStart($scope, $scope.userId, $scope.itemId, params).finally(function () {
         window.mediaElement.play();
         $scope.status = 'playing-with-controls';
         $scope.paused = false;
@@ -528,6 +559,15 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       clearTimeouts();
       $scope.status = 'waiting';
       setApplicationClose();
+    });
+  };
+
+  factory.seek = function ($scope) {
+    $scope.$apply(function () {
+      clearTimeouts();
+      $scope.status = 'seeking';
+      var requestData = window.mediaManager.SeekRequestData();
+      $scope.currentTime = requestData.currentTime;
     });
   };
 
@@ -665,7 +705,12 @@ module.controller('MainCtrl', function ($scope, mediaBrowserActions) {
     window.mediaManager.defaultOnPlay = window.mediaManager.onPlay;
     window.mediaManager.onPlay = function (event) {
       mediaBrowserActions.play($scope, event);
-      mediaBrowserActions.reportPlaybackStart($scope, $scope.userId, $scope.itemId, false, $scope.mediaType);
+      var params = {
+        CanSeek: false,
+        QueueableMediaTypes: $scope.mediaType,
+        SupportsRemoteControl: true
+      };
+      mediaBrowserActions.reportPlaybackStart($scope, $scope.userId, $scope.itemId, params);
     };
 
     window.mediaManager.defaultOnPause = window.mediaManager.onPause;
@@ -681,6 +726,13 @@ module.controller('MainCtrl', function ($scope, mediaBrowserActions) {
       window.mediaManager.defaultOnStop(event);
       mediaBrowserActions.stop($scope);
       mediaBrowserActions.reportPlaybackStopped($scope, $scope.userId, $scope.itemId);
+    };
+
+    window.mediaManager.defaultOnSeek = window.mediaManager.onSeek;
+    window.mediaManager.onSeek = function (event) {
+      window.mediaManager.defaultOnSeek(event);
+      mediaBrowserActions.seek($scope);
+      mediaBrowserActions.reportSeek($scope);
     };
 
     window.player = null;
