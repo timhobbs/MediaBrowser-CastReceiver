@@ -17,7 +17,7 @@ module.config(function ($httpProvider) {
 module.run(function ($rootScope) {
   window.mediaElement = document.getElementById('video-player');
   window.mediaManager = new cast.receiver.MediaManager(window.mediaElement);
-  $rootScope.versionNumber = '1.0.701';
+  $rootScope.versionNumber = '1.0.700';
   $rootScope.guid = guid();
 });
 
@@ -287,7 +287,7 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
     return url;
   };
 
-  factory.reportPlaybackStart = function ($scope, userId, itemId, params) {
+  factory.reportPlaybackStart = function ($scope, userId, itemId, canSeek, queueableMediaTypes) {
 
     var deferred = $q.defer();
     deferred.resolve();
@@ -306,6 +306,11 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       console.log("null serverAddress");
       return deferred.promise;
     }
+
+    var params = {
+      CanSeek: canSeek,
+      QueueableMediaTypes: queueableMediaTypes
+    };
 
     var url = getUrl($scope, "Users/" + userId + "/PlayingItems/" + itemId);
     var auth = authorizationHeader($scope, userId);
@@ -502,13 +507,7 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
 
   factory.delayStart = function ($scope) {
     delayStartPromise = $timeout(function () {
-      var params = {
-        CanSeek: false,
-        QueueableMediaTypes: $scope.mediaType,
-        SupportsRemoteControl: true
-      };
-
-      factory.reportPlaybackStart($scope, $scope.userId, $scope.itemId, params).finally(function () {
+      factory.reportPlaybackStart($scope, $scope.userId, $scope.itemId, false, $scope.mediaType).finally(function () {
         window.mediaElement.play();
         $scope.status = 'playing-with-controls';
         $scope.paused = false;
@@ -705,12 +704,7 @@ module.controller('MainCtrl', function ($scope, mediaBrowserActions) {
     window.mediaManager.defaultOnPlay = window.mediaManager.onPlay;
     window.mediaManager.onPlay = function (event) {
       mediaBrowserActions.play($scope, event);
-      var params = {
-        CanSeek: false,
-        QueueableMediaTypes: $scope.mediaType,
-        SupportsRemoteControl: true
-      };
-      mediaBrowserActions.reportPlaybackStart($scope, $scope.userId, $scope.itemId, params);
+      mediaBrowserActions.reportPlaybackStart($scope, $scope.userId, $scope.itemId, false, $scope.mediaType);
     };
 
     window.mediaManager.defaultOnPause = window.mediaManager.onPause;
