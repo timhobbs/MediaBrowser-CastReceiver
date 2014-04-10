@@ -22,7 +22,7 @@ limitations under the License.
       <script src="//www.gstatic.com/cast/sdk/libs/mediaplayer/0.5.0/media_player.js"></script>
       <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" href="css/glyphicons.css">
-    <link rel="stylesheet" href="css/media-browser.css?hash=019">
+    <link rel="stylesheet" href="css/media-browser.css?hash=020">
   </head>
   <body ng-class="status" ng-controller="MainCtrl">
     <div id="waiting-container">
@@ -34,13 +34,16 @@ limitations under the License.
       <p class="version-number">{{versionNumber}}</p>
     </div>
     <video id="video-player" preload="auto"></video>
-    <div id="backdrop" ng-style="{backgroundImage : 'url('+backdrop+')'}">
+    <div id="backdrop" ng-style="{ backgroundImage : 'url('+backdrop+')' }">
         <img class="spinner" src="img/spinner.png"/>
         <div class="gradient">
-        <h2>
-          <span class="media-title">{{mediaTitle}}</span>
-          <span class="media-secondary-title">{{secondaryTitle}}</span>
-        </h2>
+          <img id="media-poster" ng-src="{{poster}}" ng-show="showPoster"/>
+          <h2>
+            <span class="media-title">{{mediaTitle}}</span>
+            <span class="media-secondary-title" ng-show="secondaryTitle">{{secondaryTitle}}</span>
+            <span class="media-artist" ng-show="artist">{{artist}}</span>
+            <span class="media-album-title" ng-show="albumTitle"><em>{{albumTitle}}</em></span>
+          </h2>
       </div>
     </div>
     <div id="controls">
@@ -50,7 +53,9 @@ limitations under the License.
           <i class="glyphicon glyphicon-pause" ng-show="paused"></i>
           <i class="glyphicon glyphicon-play" ng-hide="paused"></i>
           <span class="media-title">{{mediaTitle}}</span>
-          <span class="media-secondary-title">{{secondaryTitle}}</span>&nbsp;
+          <span class="media-secondary-title" ng-show="secondaryTitle">{{secondaryTitle}}</span>
+          <span class="media-artist" ng-show="artist">{{artist}}</span>
+          <span class="media-album-title" ng-show="albumTitle"><em>(from the album "{{albumTitle}}")</em></span>
         </h1>
         <div id="player-controls-left"><span class="player-time player-current-time">{{( (startTimeTicks * 1) + (currentTime * 10000000)) | displayTime}}</span></div>
         <div id="player-controls-right"><span class="player-time player-duration">{{duration | displayTime}}</span></div>

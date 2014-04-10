@@ -17,7 +17,7 @@ module.config(function ($httpProvider) {
 module.run(function ($rootScope) {
   window.mediaElement = document.getElementById('video-player');
   window.mediaManager = new cast.receiver.MediaManager(window.mediaElement);
-  $rootScope.versionNumber = '1.0.700';
+  $rootScope.versionNumber = '2.0.000';
   $rootScope.guid = guid();
 });
 
@@ -247,6 +247,12 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
   };
 
   var fallBackBackdropImg = function ($scope, src) {
+    if (!src) {
+      $scope.backdrop = "img/bg.jpg";
+      $scope.$apply();
+      return;
+    }
+
     var setBackdrop = function () {
       $scope.backdrop = this.src;
       $scope.$apply();
@@ -395,41 +401,14 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       });
   };
 
-  factory.reportSeek = function ($scope) {
-    var deferred = $q.defer();
-    deferred.resolve();
-    
-    if (!$scope.serverAddress) {
-      console.log("null serverAddress");
-      return deferred.promise;
-    }
-
-    if (!$scope.sessionId) {
-      console.log("null sessionId");
-      return deferred.promise;
-    }
-
-    var params = {
-      SeekPositionTicks: $scope.currentTime
-    };
-
-    var url = getUrl($scope, "Sessions/" + $scope.sessionId + "/Playing/Seek");
-    var auth = authorizationHeader($scope, userId);
-    return $http.post(url,
-      {
-        params: params,
-        headers: {
-          Authorization: auth
-        }
-      });
-  }
-
   factory.load = function ($scope, customData) {
     $scope.$apply(function () {
       $scope.poster = '';
       $scope.backdrop = '';
       $scope.mediaTitle = '';
       $scope.secondaryTitle = '';
+      $scope.artist = '';
+      $scope.albumTitle = '';
       $scope.duration = 0;
       $scope.currentTime = 0;
       $scope.mediaType = '';
@@ -442,6 +421,7 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       $scope.audioStreamIndex = "";
       $scope.subtitleStreamIndex = "";
       $scope.sessionId = "";
+      $scope.showPoster = false;
     });
 
     clearTimeouts();
@@ -498,6 +478,13 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       fallBackBackdropImg($scope, backdropUrl);
       $scope.mediaTitle = isSeries ? data.SeriesName : data.Name;
       $scope.secondaryTitle = isSeries ? data.Name : '';
+
+      if (data.MediaType == "Audio" && data.Artists && data.Album) {
+        $scope.artist = data.Artists[0];
+        $scope.albumTitle = data.Album;
+        $scope.showPoster = true;
+      }
+
       $scope.status = 'backdrop';
       $scope.mediaType = data.MediaType;
     }).then(function () {
@@ -510,6 +497,9 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       factory.reportPlaybackStart($scope, $scope.userId, $scope.itemId, false, $scope.mediaType).finally(function () {
         window.mediaElement.play();
         $scope.status = 'playing-with-controls';
+        if ($scope.mediaType == "Audio") {
+          $scope.status = "audio";
+        }
         $scope.paused = false;
       });
 
@@ -523,7 +513,7 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       $scope.paused = false;
     });
 
-    if ($scope.status == 'backdrop' || $scope.status == 'playing-with-controls' || $scope.status == 'playing') {
+    if ($scope.status == 'backdrop' || $scope.status == 'playing-with-controls' || $scope.status == 'playing' || $scope.status == 'audio') {
       clearTimeouts();
       $timeout(function () {
         var startTime = new Date();
@@ -538,6 +528,9 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
         }
         window.mediaManager.defaultOnPlay(event);
         $scope.status = 'playing-with-controls';
+        if ($scope.mediaType == "Audio") {
+          $scope.status = "audio";
+        }
       }, 20).then(function () {
         setControls($scope);
       });
@@ -547,6 +540,9 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
   factory.pause = function ($scope) {
     $scope.$apply(function () {
       $scope.status = 'playing-with-controls';
+      if ($scope.mediaType == "Audio") {
+          $scope.status = "audio";
+        }
       $scope.paused = true;
       $scope.currentTime = window.mediaElement.currentTime;
       clearTimeouts();
@@ -558,15 +554,6 @@ module.factory('mediaBrowserActions', function ($timeout, $http, $q) {
       clearTimeouts();
       $scope.status = 'waiting';
       setApplicationClose();
-    });
-  };
-
-  factory.seek = function ($scope) {
-    $scope.$apply(function () {
-      clearTimeouts();
-      $scope.status = 'seeking';
-      var requestData = window.mediaManager.SeekRequestData();
-      $scope.currentTime = requestData.currentTime;
     });
   };
 
@@ -720,13 +707,6 @@ module.controller('MainCtrl', function ($scope, mediaBrowserActions) {
       window.mediaManager.defaultOnStop(event);
       mediaBrowserActions.stop($scope);
       mediaBrowserActions.reportPlaybackStopped($scope, $scope.userId, $scope.itemId);
-    };
-
-    window.mediaManager.defaultOnSeek = window.mediaManager.onSeek;
-    window.mediaManager.onSeek = function (event) {
-      window.mediaManager.defaultOnSeek(event);
-      mediaBrowserActions.seek($scope);
-      mediaBrowserActions.reportSeek($scope);
     };
 
     window.player = null;
